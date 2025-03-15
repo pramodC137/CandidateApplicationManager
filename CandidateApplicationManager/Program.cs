@@ -3,12 +3,15 @@ using CandidateApplicationManager.Api.Core;
 using CandidateApplicationManager.Api.Repository;
 using CandidateApplicationManager.Repositories;
 using CandidateApplicationManager.Core;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
 var configuration = builder.Configuration;
 
-// Add services to the container.
+// Add services to the contain er.
 
 builder.Services.AddSingleton((provider) =>
 {
@@ -32,6 +35,30 @@ builder.Services.AddSingleton((provider) =>
     return cosmosClient;
 });
 
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+}).AddJwtBearer(option =>
+{
+    option.RequireHttpsMetadata = false;
+    option.SaveToken = true;
+    option.TokenValidationParameters = new TokenValidationParameters 
+    {
+        ValidIssuer = builder.Configuration["JwtConfig:Issuer"],
+        ValidAudience = builder.Configuration["JwtConfig:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JwtConfig:Key"]!)),
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true
+    };
+
+});
+
+builder.Services.AddAuthorization();
+
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -42,7 +69,7 @@ builder.Services.AddScoped<IQuestionRepository, QuestionRepository>();
 builder.Services.AddScoped<ICandidateApplicationRepository, CandidateApplicationRepository>();
 
 var app = builder.Build();
-
+  
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -52,6 +79,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
